@@ -9,16 +9,21 @@ public class EnemyAI : MonoBehaviour
     {
         Patrolling,
         Chasing,
-        Searching
+        Searching,
+        Waiting,
+        Attacking,
 
     }
     public EnemyState currentState;
+
     private NavMeshAgent _AIAgent;
     private Transform  _playerTransform;
     //puntos patrulla
     [SerializeField] Transform[] _patrolPoints;
-    [SerializeField] Vector2 _patrolAreaSize = new Vector2(5, 5);
-    [SerializeField] Transform _patrolAreaCenter;
+    private int _currentPatrolIndex = 0;
+
+  
+  
 // cosas detccion 
     [SerializeField] float _visionRange = 20;
     [SerializeField] float _visionAngle = 120;
@@ -49,16 +54,22 @@ public class EnemyAI : MonoBehaviour
         switch(currentState)
         {
             case EnemyState.Patrolling:
-            Patrol();
+             Patrol();
 
               break;
 
             case EnemyState.Chasing:
               Chase();
 
-            break;
+             break;
             case EnemyState.Searching:
             Search();
+            break;
+            case EnemyState.Waiting:
+            Wait();
+            break;
+            case EnemyState.Attacking:
+            Attack();
             break;
         }
     }
@@ -68,14 +79,29 @@ public class EnemyAI : MonoBehaviour
         if(OnRange())
         {
             currentState = EnemyState.Chasing;
+            return;
         }
 
         if(_AIAgent.remainingDistance < 0.5f)
         {
-         SetRandomPatrolPoint();
+          currentState = ENEmySTate.Waiting;
+          _waitTimer = 0;
+
 
         }
        
+    }
+    
+    void Wait()
+    {
+        _WaitTimer += Time.deltaTime;
+
+        if(_waitTimer >= _waitTime)
+        {
+            currentState = EnemyState.Patolling;
+            SetNextPatrolPoint();
+
+        }
     }
     
     void Chase()
@@ -83,8 +109,19 @@ public class EnemyAI : MonoBehaviour
         if(!OnRange())
         {
             currentState = EnemyState.Searching;
+            return;
+
         }
-        _AIAgent.destination = _playerTransform.position;
+        if(Vector3.Distance(Tranform.position, _playerTransform.position) < 2.0f)
+        {
+            currentState = EnemySyaye.Attacking;
+
+        }
+        else
+        {
+            _AIAgent.desination = _playerTransform.position;
+        }
+    
     }
 
     void Search()
@@ -92,6 +129,8 @@ public class EnemyAI : MonoBehaviour
         if(OnRange())
         {
             currentState = EnemyState.Chasing;
+            return;
+        
         }
         _searchTimer += Time.deltaTime;
 
@@ -116,6 +155,12 @@ public class EnemyAI : MonoBehaviour
      
     }
 
+    void Attack()
+    {
+        Debug.Log("Enemy is attacking!");
+        currentState = EnemyState.Chasing;
+    }
+
     bool RandomSearchPoint(Vector3 center, float radius, out Vector3 point)
     {
         Vector3 randomPoint = center + Random.insideUnitSphere * radius; 
@@ -132,7 +177,9 @@ public class EnemyAI : MonoBehaviour
     }
 
     bool OnRange()
-    {
+    { 
+
+    }
         Vector3 directionToPlayer = _playerTransform.position - transform.position; 
         float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer);
         float distanceToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
@@ -151,8 +198,6 @@ public class EnemyAI : MonoBehaviour
             return false;
         }
 
-        return true;
-
         RaycastHit hit;
         if(Physics.Raycast(transform.position, directionToPlayer, out hit, distanceToPlayer))
         {
@@ -170,57 +215,20 @@ public class EnemyAI : MonoBehaviour
         }
         return true;
 
-        if(distanceToPlayer < _visionRange)
-        {
-            if(angleToPlayer < _visionAngle * 0.5f)
-            {
-                return true;
-            }
-            else 
-            {
-                return false;
-            }
-        
-
-        }
-        else
-        {
-            return false; 
-        }
-    }
-    void SetRandomPatrolPoint()
-    {
-       // _AIAgent.destination = _patrolPoints[Random.Range(0, _patrolPoints.Length)].position;
-       float RandomX = Random.Range(-_patrolAreaSize.x * 0.5f, _patrolAreaSize.x * 0.5f);
-       float RandomZ = Random.Range(-_patrolAreaSize.y * 0.5f, _patrolAreaSize.y * 0.5f);
-
-       Vector3 randomPoint = new Vector3(RandomX, 0, RandomZ) + _patrolAreaCenter.position;
-       _AIAgent.destination = randomPoint;
-    }
-
-    void OnDrawGizmos()
-    {
-       /* foreach(Transform point in _patrolPoints)
-        {
-            Gizmos.color = Color.blue;
-            Gizmos.DrawWireSphere(point.position, 0.5f);
-        }*/
-
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireCube(_patrolAreaCenter.position, new Vector3(_patrolAreaSize.x, 1, _patrolAreaSize.y));
-
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(transform.position, _visionRange);
-
-        Gizmos.color = Color.yellow;
-
-        Vector3 fovLine1 = Quaternion.AngleAxis(_visionAngle * 0.5f, transform.up) * transform.forward * _visionRange; 
-        Vector3 fovLine2 = Quaternion.AngleAxis(-_visionAngle * 0.5f, transform.up) * transform.forward * _visionRange; 
-
-        Gizmos.DrawLine(transform.position, transform.position + fovLine1);
-        Gizmos.DrawLine(transform.position, transform.position + fovLine2);
-
     
-    }
+    
+    void SetNextPatrolPoint()
+    {
+        if (_patrolPoints.Length == 0)
+        {
+            return;
+        }
 
+        _AIAgent.destination = _patrolPoints[_currentPatrolIndex].position;
+
+        // Incrementar el índice y reiniciarlo si alcanza el final
+        _currentPatrolIndex = (_currentPatrolIndex + 1) % _patrolPoints.Length;
+    }
 }
+
+
